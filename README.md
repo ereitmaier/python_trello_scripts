@@ -112,4 +112,3 @@ Bekijk Trainingsgroep 1 met weergave van het veld "Wedstrijdselectie":
 ```Bash
 python main.py -t 1 -p -f "Wedstrijdselectie"
 ```
-# python_trello_scripts
