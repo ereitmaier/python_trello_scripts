@@ -15,6 +15,10 @@ ENV/
 env/
 myenv/
 
+# Data
+selecties.yaml
+trainingen.yaml
+
 # Python Cache & Overige
 __pycache__/
 *.py[cod]
