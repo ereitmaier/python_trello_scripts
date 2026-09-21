@@ -1,6 +1,5 @@
 from collections import defaultdict
 import requests
-from concurrent.futures import ThreadPoolExecutor
 from card import Card
 from trello_list import TrelloList
 
@@ -121,6 +120,16 @@ class Board:
         """Haalt een TrelloList-object op basis van de naam."""
         return self.lists.get(name.lower())
 
+    def get_list_names(self):
+        """Geeft een lijst van alle lijstnamen terug."""
+        return [t_list.name for t_list in self.lists.values()]
+
+    def print_list_names(self):
+        """Print alle beschikbare lijsten op het board."""
+        print("\n📋 Beschikbare lijsten op het board:")
+        for name in self.get_list_names():
+            print(f" - {name}")
+
     def reset_to_roster_pool(
         self, target_list_name="Roster Pool", source_lists=None
     ):
@@ -162,7 +171,7 @@ class Board:
         )
 
     def print_samenstelling(
-        self, list_name=None, custom_field_name=None, show_positions=True, show_comments=False, custom_field_to_show=None
+        self, list_name=None, custom_field_name=None, show_positions=False, show_comments=False, custom_field_to_show=None
     ):
         """Prints de samenstelling van een specifieke lijst OF groepeert op Custom Field."""
         if list_name and not custom_field_name:
@@ -207,7 +216,7 @@ class Board:
                 )
             else:
                 sorted_cards = sorted(
-                    cards_in_group, key=str.lower
+                    cards_in_group, key=lambda c: c.name.lower()
                 )
 
             max_width = len(str(len(sorted_cards)))
@@ -216,17 +225,70 @@ class Board:
                 pos_str = (
                     f"{card.get_position_code()} " if show_positions else ""
                 )
-                
-                extra_field_str = ""
-                if custom_field_to_show:
-                    f_val = card.get_custom_field_value(custom_field_to_show)
-                    f_val_disp = f_val if f_val is not None else "-"
-                    extra_field_str = f" | {custom_field_to_show}: {f_val_disp}"
+
+                extra_field_str = card.get_formatted_custom_fields(custom_field_to_show)
 
                 print(f" {num_str}. {pos_str}{card.name}{extra_field_str}")
 
                 if show_comments:
                     card.print_comments(indent="      ")
+
+    def show_training_groups(self, groups=None, show_positions=False, show_comments=False, custom_field_to_show=None):
+        """Toont de samenstelling van trainingsgroepen.
+        
+        Param 'groups': None voor alle groepen, of bijv. 1, "1", of ["1", "2"].
+        """
+        if groups is None:
+            self.print_samenstelling(
+                custom_field_name="Trainingsgroep",
+                show_positions=show_positions,
+                show_comments=show_comments,
+                custom_field_to_show=custom_field_to_show,
+            )
+        else:
+            if isinstance(groups, (int, str)):
+                group_list = [str(groups)]
+            else:
+                group_list = [str(g) for g in groups]
+
+            for g in group_list:
+                list_name = f"Trainingsgroep {g.strip()}"
+                self.print_samenstelling(
+                    list_name=list_name,
+                    show_positions=show_positions,
+                    show_comments=show_comments,
+                    custom_field_to_show=custom_field_to_show,
+                )
+
+    def show_match_squads(self, squads=None, show_positions=True, show_comments=False, custom_field_to_show=None):
+        """Toont de samenstelling van match squads.
+        
+        Param 'squads': None voor alle squads, of bijv. "1", "vr1", of ["1", "2"].
+        """
+        if squads is None:
+            self.print_samenstelling(
+                custom_field_name="Wedstrijdselectie",
+                show_positions=show_positions,
+                show_comments=show_comments,
+                custom_field_to_show=custom_field_to_show,
+            )
+        else:
+            if isinstance(squads, (int, str)):
+                squad_list = [str(squads)]
+            else:
+                squad_list = [str(s) for s in squads]
+
+            for s in squad_list:
+                s_str = s.strip().lower()
+                code = s_str.replace("vr", "")
+                list_name = f"Match Squad Vr{code.upper()}" if code.isdigit() else f"Match Squad {s_str}"
+                
+                self.print_samenstelling(
+                    list_name=list_name,
+                    show_positions=show_positions,
+                    show_comments=show_comments,
+                    custom_field_to_show=custom_field_to_show,
+                )
 
     def find_card(self, card_name):
         """Zoekt hoofdletterongevoelig naar een kaart op het gehele board."""
@@ -236,6 +298,28 @@ class Board:
                 if card.name.strip().lower() == search_name:
                     return card
         return None
+
+    def search_card(self, card_name, show_positions=False, show_comments=False, custom_field_to_show=None):
+        """Zoekt naar een speler/kaart en print de details direct naar de console."""
+        card = self.find_card(card_name)
+        if not card:
+            print(f"⚠️ Speler/Kaart '{card_name}' niet gevonden op het board.")
+            return None
+
+        lijst_naam = card.trello_list.name if card.trello_list else "Onbekend"
+        field_str = card.get_formatted_custom_fields(custom_field_to_show)
+
+        print(f"\n🔍 Speler gevonden:")
+        print(f"   Naam: {card.name}{field_str}")
+        print(f"   Lijst: {lijst_naam}")
+        
+        if show_positions:
+            print(f"   - Positie: {card.get_position_code()}")
+
+        if show_comments:
+            card.print_comments(indent="   ")
+
+        return card
 
     def update_custom_field(self, card_id, field_name, value):
         """Update een Custom Field op een specifieke kaart via de Trello API."""
@@ -281,6 +365,27 @@ class Board:
 
         response = requests.put(url, json=payload, params=self.auth)
         response.raise_for_status()
+
+    def get_custom_fields(self):
+        """Geeft een lijst terug van alle beschikbare Custom Fields op het board."""
+        return list(self.custom_fields.keys())
+
+    def print_custom_fields(self):
+        """Print een overzicht van alle Custom Fields en hun eventuele keuzemogelijkheden."""
+        print(f"\n🏷️ Custom Fields op board '{self.name}':")
+        if not self.custom_fields:
+            print("   (Geen Custom Fields gevonden)")
+            return
+
+        for name, info in self.custom_fields.items():
+            field_type = info.get("type", "onbekend")
+            options = info.get("options", {})
+
+            if options:
+                opt_str = ", ".join(options.values())
+                print(f" - {name} ({field_type}): [{opt_str}]")
+            else:
+                print(f" - {name} ({field_type})")
 
     def __repr__(self):
         return f"<Board(name='{self.name}', lists={list(self.lists.keys())})>"

@@ -29,7 +29,7 @@ class TrelloList:
                         filtered_cards.append(card)
         return filtered_cards
 
-    def print_samenstelling(self, show_positions=True, show_comments=False, custom_field_to_show=None):
+    def print_samenstelling(self, show_positions=False, show_comments=False, custom_field_to_show=None):
         """Print de opstelling/samenstelling van deze specifieke lijst."""
         print(f"\n📋 Samenstelling: {self.name}")
 
@@ -52,12 +52,8 @@ class TrelloList:
             pos_str = (
                 f"{card.get_position_code()} " if show_positions else ""
             )
-            
-            extra_field_str = ""
-            if custom_field_to_show:
-                val = card.get_custom_field_value(custom_field_to_show)
-                val_display = val if val is not None else "-"
-                extra_field_str = f" | {custom_field_to_show}: {val_display}"
+
+            extra_field_str = card.get_formatted_custom_fields(custom_field_to_show)
 
             print(f" {num_str}. {pos_str}{card.name}{extra_field_str}")
 

@@ -24,24 +24,35 @@ class Card:
         if not self.board:
             return None
 
-        field_def = self.board.custom_fields.get(field_name.lower().strip())
+        search_key = field_name.lower().strip()
+        field_def = self.board.custom_fields.get(search_key)
 
         if not field_def:
             if debug:
                 print(
-                    f"   ⚠️ DEBUG: Veld '{field_name}' niet gevonden op board."
+                    f"⚠️ DEBUG: Veld '{field_name}' niet gevonden op board."
                 )
             return None
 
         cf_id = field_def["id"]
+
         for item in self.custom_field_items:
             if item.get("idCustomField") == cf_id:
-                if "idValue" in item:
-                    return field_def["options"].get(item["idValue"])
-                val_obj = item.get("value", {})
-                for key in ["number", "text", "checked", "date"]:
-                    if key in val_obj:
-                        return val_obj[key]
+                # 1. Dropdown/List (alleen als idValue een string ID is)
+                id_val = item.get("idValue")
+                if id_val and isinstance(id_val, str):
+                    return field_def["options"].get(id_val)
+
+                # 2. Values uit dictionary (number, text, date, checked)
+                val_obj = item.get("value")
+                if isinstance(val_obj, dict):
+                    for key in ["number", "text", "date", "checked"]:
+                        if key in val_obj and val_obj[key] is not None:
+                            return val_obj[key]
+
+                # 3. Directe 'checked' status
+                if "checked" in item and item["checked"] is not None:
+                    return item["checked"]
 
         return None
 
@@ -126,6 +137,34 @@ class Card:
         print(f"{indent}💬 Comments:")
         for c in comments:
             print(f"{indent}   [{c['date']}] {c['author']}: {c['text']}")
+
+    def get_all_custom_field_values(self):
+        """Haalt alle gevulde Custom Field waarden op voor deze kaart."""
+        if not self.board:
+            return {}
+
+        results = {}
+        for cf_name in self.board.custom_fields.keys():
+            val = self.get_custom_field_value(cf_name)
+            if val is not None:
+                results[cf_name] = val
+        return results 
+
+    def get_formatted_custom_fields(self, custom_field_to_show):
+        """Formatteert één specifiek Custom Field of álle Custom Fields voor console-weergave."""
+        if not custom_field_to_show:
+            return ""
+
+        if custom_field_to_show in (True, "all"):
+            all_cfs = self.get_all_custom_field_values()
+            if not all_cfs:
+                return ""
+            formatted = [f"{k}: {v}" for k, v in all_cfs.items()]
+            return f" : {' | '.join(formatted)}"
+
+        val = self.get_custom_field_value(custom_field_to_show)
+        val_display = val if val is not None else "-"
+        return f" : {custom_field_to_show}: {val_display}"
 
     def __str__(self):
         return f"- [{self.id}] {self.name}"

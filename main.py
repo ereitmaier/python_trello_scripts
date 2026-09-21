@@ -59,6 +59,12 @@ def main():
         help="Toon alle kaarten van een specifieke lijst.",
     )
     parser.add_argument(
+        "-L",
+        "--lists",
+        action="store_true",
+        help="Toon alle beschikbare lijsten op het board.",
+    )
+    parser.add_argument(
         "-r",
         "--reset",
         action="store_true",
@@ -78,12 +84,19 @@ def main():
 
     board = Board(board_name="Voetbal Selectie", key=key, token=token)
 
-    # --- 1. RESET ---
+    # --- 1. ALLE LIJSTEN TONEN (-L) ---
+    if args.lists:
+        print("\n📋 Beschikbare lijsten op het board:")
+        for t_list in board.lists.values():
+            print(f" - {t_list.name}")
+        return
+
+    # --- 2. RESET ---
     if args.reset:
         board.reset_to_roster_pool()
         return
 
-    # --- 2. SPELER ZOEKEN (-s) ---
+    # --- 3. SPELER ZOEKEN (-s) ---
     if args.search:
         card = board.find_card(args.search)
         if not card:
@@ -106,7 +119,7 @@ def main():
                 card.print_comments(indent="   ")
         return
 
-    # --- 3. SPECIFIEKE LIJST TONEN (-l) ---
+    # --- 4. SPECIFIEKE LIJST TONEN (-l) ---
     if args.list:
         board.print_samenstelling(
             list_name=args.list,
@@ -116,7 +129,7 @@ def main():
         )
         return
 
-    # --- 4. TRAININGGROEPEN (-t) ---
+    # --- 5. TRAININGGROEPEN (-t) ---
     if args.training is not None:
         if args.training == "ALL":
             # Totaaloverzicht groeperen op het veld "Trainingsgroep"
@@ -139,7 +152,7 @@ def main():
                 )
         return
 
-    # --- 5. MATCH SQUAD (-m) ---
+    # --- 6. MATCH SQUAD (-m) ---
     if args.match is not None:
         if args.match == "ALL":
             # Totaaloverzicht groeperen op het veld "Wedstrijdselectie"
